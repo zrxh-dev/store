@@ -14,33 +14,60 @@ body {
 .hidden { display: none !important; }
 .view-section { transition: opacity 0.2s ease; }
 
-/* --- PRODUCT CARD (Simplified) --- */
+/* --- PRODUCT CARD (Catalog) --- */
 .product-card {
-    background: rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.8);
+    background: white;
+    border: 1px solid #e5e7eb;
     border-radius: 16px;
     overflow: hidden;
-    transition: transform 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s;
     display: flex;
     flex-direction: column;
+    cursor: pointer; /* Shows it is clickable */
 }
+
 .product-card:active { transform: scale(0.98); }
 
-.product-img {
+/* The container for the image - Forces a Square Shape */
+.img-container {
     width: 100%;
-    height: 140px;
-    object-fit: cover;
+    aspect-ratio: 1 / 1; /* Makes it a perfect square */
     background-color: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px; /* Padding so image doesn't touch edges */
 }
 
-.product-info { padding: 12px; display: flex; flex-direction: column; }
-.product-title { font-weight: 700; line-height: 1.2; color: #1f2937; }
+/* The actual image */
+.product-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Ensures image is not cropped/stretched */
+    mix-blend-mode: multiply; /* Helps transparent PNGs look better on grey */
+}
 
-/* --- ADMIN LIST ITEM --- */
-.admin-item {
-    background: white; border: 1px solid #eee; border-radius: 12px; padding: 12px;
-    display: flex; justify-content: space-between; align-items: center;
+.product-info { 
+    padding: 12px; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 4px;
+    border-top: 1px solid #f3f4f6;
+}
+
+.product-title { 
+    font-weight: 700; 
+    font-size: 0.9rem;
+    color: #1f2937; 
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.product-price-tag {
+    font-weight: 600;
+    color: #2563eb; /* Blue color for price */
+    font-size: 0.85rem;
 }
 
 /* --- SCROLLBAR --- */

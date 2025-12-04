@@ -26,7 +26,6 @@ const db = firebase.firestore();
 // --- STATE ---
 let userRole = localStorage.getItem('storeRole') || 'buyer';
 let cart = JSON.parse(localStorage.getItem('cart')) || []; 
-// Cart Structure now: [{ id, name, price, image, qty: 1 }]
 
 // --- INIT ---
 document.getElementById('currency-select').value = activeCurrency;
@@ -52,7 +51,6 @@ function changeCurrency() {
 
 function formatPrice(usdPrice) {
     const price = usdPrice * rates[activeCurrency];
-    // Format: USD/MYR use decimals, IDR usually no decimals
     const display = activeCurrency === 'IDR' 
         ? price.toLocaleString('id-ID') 
         : price.toFixed(2);
@@ -79,22 +77,26 @@ function logout() {
     showToast("Logged out");
 }
 
-// --- PRODUCT LOGIC ---
+// --- PRODUCT LOGIC (CATALOGUE) ---
 function loadProducts() {
     const grid = document.getElementById('product-grid');
+    
     db.collection('products').where('status', '==', 'approved').get().then(snap => {
         grid.innerHTML = '';
         snap.forEach(doc => {
             const p = doc.data();
-            // Store data in a safe string for the onclick
             const dataStr = encodeURIComponent(JSON.stringify({id: doc.id, ...p}));
             
-            // CLEAN CARD: Only Image + Name
+            // UPDATE: Only showing Image, Name, and Price. 
+            // The Image is inside a square container (img-container)
             grid.innerHTML += `
-                <div class="product-card cursor-pointer" onclick="openProductDetail('${dataStr}')">
-                    <img src="${p.image}" class="product-img" onerror="this.src='https://via.placeholder.com/150'">
-                    <div class="product-info justify-center text-center">
-                        <div class="product-title text-sm">${p.name}</div>
+                <div class="product-card" onclick="openProductDetail('${dataStr}')">
+                    <div class="img-container">
+                        <img src="${p.image}" class="product-img" onerror="this.src='https://via.placeholder.com/150'">
+                    </div>
+                    <div class="product-info">
+                        <div class="product-title">${p.name}</div>
+                        <div class="product-price-tag">${formatPrice(p.price)}</div>
                     </div>
                 </div>
             `;
@@ -103,7 +105,7 @@ function loadProducts() {
     });
 }
 
-// --- MODAL LOGIC ---
+// --- MODAL LOGIC (FULL INFO) ---
 function openProductDetail(dataStr) {
     const p = JSON.parse(decodeURIComponent(dataStr));
     const modal = document.getElementById('product-modal');
@@ -112,7 +114,7 @@ function openProductDetail(dataStr) {
     // Fill Info
     document.getElementById('modal-img').src = p.image;
     document.getElementById('modal-title').textContent = p.name;
-    document.getElementById('modal-seller').textContent = `By ${p.seller}`;
+    document.getElementById('modal-seller').textContent = `Uploaded by: ${p.seller}`;
     document.getElementById('modal-price').textContent = formatPrice(p.price);
     document.getElementById('modal-desc').textContent = p.description || "No description provided.";
     
@@ -135,12 +137,12 @@ function closeModal() {
     content.classList.add('translate-y-full');
 }
 
-// --- ADD PRODUCT (ADMIN/SELLER) ---
+// --- ADD PRODUCT ---
 function addProduct() {
     const name = document.getElementById('prod-name').value;
     const price = parseFloat(document.getElementById('prod-price').value);
     const seller = document.getElementById('prod-seller').value;
-    const description = document.getElementById('prod-desc').value; // Get Description
+    const description = document.getElementById('prod-desc').value;
     const image = document.getElementById('prod-img').value;
 
     if(!name || !price || !seller) return alert("Fill all fields");
@@ -152,7 +154,6 @@ function addProduct() {
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
     }).then(() => {
         alert(status === 'approved' ? "Product Live!" : "Sent for Approval!");
-        // Clear inputs
         document.getElementById('prod-name').value = '';
         document.getElementById('prod-desc').value = '';
         document.getElementById('prod-price').value = '';
@@ -160,7 +161,7 @@ function addProduct() {
     });
 }
 
-// --- DASHBOARD LOGIC (Simplified for brevity) ---
+// --- DASHBOARD ---
 function loadDashboard() {
     document.getElementById('dashboard-role').textContent = userRole.toUpperCase();
     if(userRole === 'buyer') { switchTab('login'); return; }
@@ -169,7 +170,6 @@ function loadDashboard() {
     const pList = document.getElementById('pending-list');
     const list = document.getElementById('manage-list');
 
-    // Admin Pending List
     if(userRole === 'admin') {
         pendingDiv.classList.remove('hidden');
         db.collection('products').where('status', '==', 'pending').get().then(snap => {
@@ -192,7 +192,6 @@ function loadDashboard() {
         });
     } else { pendingDiv.classList.add('hidden'); }
 
-    // Live Items
     db.collection('products').where('status', '==', 'approved').get().then(snap => {
         list.innerHTML = '';
         snap.forEach(doc => {
@@ -218,7 +217,6 @@ function deleteProduct(id) { if(confirm("Delete?")) db.collection('products').do
 
 // --- CART LOGIC ---
 function addToCart(id, name, price, image) {
-    // Check if exists
     const existing = cart.find(item => item.id === id);
     if(existing) {
         existing.qty++;
@@ -232,14 +230,8 @@ function addToCart(id, name, price, image) {
 function updateQty(id, change) {
     const item = cart.find(i => i.id === id);
     if(!item) return;
-
     item.qty += change;
-    
-    if(item.qty <= 0) {
-        // Remove item if qty is 0
-        cart = cart.filter(i => i.id !== id);
-    }
-    
+    if(item.qty <= 0) cart = cart.filter(i => i.id !== id);
     saveCart();
 }
 
@@ -249,7 +241,6 @@ function saveCart() {
 }
 
 function updateCartUI() {
-    // Count total items
     const count = cart.reduce((acc, item) => acc + item.qty, 0);
     document.getElementById('cart-count').textContent = count;
     document.getElementById('cart-count').classList.toggle('hidden', count === 0);
@@ -264,17 +255,13 @@ function updateCartUI() {
     } else {
         cart.forEach(item => {
             totalUSD += (item.price * item.qty);
-            
-            // NEW UI: Image Left | Info Middle | Qty Controls Right
             container.innerHTML += `
                 <div class="bg-white p-3 rounded-xl flex items-center gap-3 shadow-sm border border-gray-100">
                     <img src="${item.image}" class="w-16 h-16 rounded-lg object-cover bg-gray-100">
-                    
                     <div class="flex-1">
                         <div class="font-bold text-gray-800 text-sm leading-tight">${item.name}</div>
                         <div class="text-blue-600 font-bold text-sm mt-1">${formatPrice(item.price)}</div>
                     </div>
-
                     <div class="flex items-center gap-2 bg-gray-50 rounded-lg p-1">
                         <button onclick="updateQty('${item.id}', -1)" class="w-7 h-7 flex items-center justify-center bg-white rounded-md shadow-sm text-gray-600 hover:text-red-500 font-bold transition-colors">
                             ${item.qty === 1 ? '<i data-lucide="trash-2" class="w-3 h-3"></i>' : '-'}
@@ -286,25 +273,20 @@ function updateCartUI() {
             `;
         });
     }
-    
     document.getElementById('cart-total').textContent = formatPrice(totalUSD);
     lucide.createIcons();
 }
 
 function checkoutWhatsApp() {
     if(cart.length === 0) return alert("Cart is empty!");
-    
     let msg = "Hi! I would like to buy:%0A";
     let totalUSD = 0;
-    
     cart.forEach(item => {
         let subtotal = item.price * item.qty;
         totalUSD += subtotal;
         msg += `- ${item.name} (x${item.qty}) - ${formatPrice(item.price)} each%0A`;
     });
-    
     msg += `%0A*Total: ${formatPrice(totalUSD)}*`;
-    
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
 }
 

@@ -23,7 +23,10 @@ body {
     transition: transform 0.2s, box-shadow 0.2s;
     display: flex;
     flex-direction: column;
-    cursor: pointer; /* Shows it is clickable */
+    cursor: pointer; /* Makes it look clickable */
+    pointer-events: auto; /* Ensures it receives clicks */
+    position: relative;
+    z-index: 10; /* Ensures it sits above background */
 }
 
 .product-card:active { transform: scale(0.98); }
@@ -36,7 +39,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 12px; /* Padding so image doesn't touch edges */
+    padding: 12px;
 }
 
 /* The actual image */
@@ -44,21 +47,21 @@ body {
     width: 100%;
     height: 100%;
     object-fit: contain; /* Ensures image is not cropped/stretched */
-    mix-blend-mode: multiply; /* Helps transparent PNGs look better on grey */
+    mix-blend-mode: multiply;
 }
 
-.product-info { 
-    padding: 12px; 
-    display: flex; 
-    flex-direction: column; 
+.product-info {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
     gap: 4px;
     border-top: 1px solid #f3f4f6;
 }
 
-.product-title { 
-    font-weight: 700; 
+.product-title {
+    font-weight: 700;
     font-size: 0.9rem;
-    color: #1f2937; 
+    color: #1f2937;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -66,7 +69,7 @@ body {
 
 .product-price-tag {
     font-weight: 600;
-    color: #2563eb; /* Blue color for price */
+    color: #2563eb;
     font-size: 0.85rem;
 }
 

@@ -1,10 +1,9 @@
 // --- CONFIGURATION ---
-const ADMIN_CODE = "admin123";  
-const SELLER_CODE = "seller123"; 
-const WHATSAPP_NUMBER = "60123456789"; 
+const ADMIN_CODE = "admin123";
+const SELLER_CODE = "seller123";
+const WHATSAPP_NUMBER = "60123456789";
 
 // --- CURRENCY SETTINGS ---
-// 1 USD = 4.5 MYR = 16000 IDR (Approximate)
 let activeCurrency = localStorage.getItem('currency') || 'USD';
 const rates = { 'USD': 1, 'MYR': 4.5, 'IDR': 16000 };
 const symbols = { 'USD': '$', 'MYR': 'RM', 'IDR': 'Rp ' };
@@ -20,21 +19,26 @@ const firebaseConfig = {
     measurementId: "G-BQQE0BGQ8X"
 };
 
-firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
 const db = firebase.firestore();
 
 // --- STATE ---
 let userRole = localStorage.getItem('storeRole') || 'buyer';
-let cart = JSON.parse(localStorage.getItem('cart')) || []; 
+let cart = JSON.parse(localStorage.getItem('cart')) || [];
+let productsMap = {}; // Safe storage for product data
 
 // --- INIT ---
-document.getElementById('currency-select').value = activeCurrency;
-lucide.createIcons();
-loadProducts();
-updateCartUI();
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('currency-select').value = activeCurrency;
+    lucide.createIcons();
+    loadProducts();
+    updateCartUI();
+});
 
 // --- NAVIGATION ---
-function switchTab(tabId) {
+window.switchTab = function(tabId) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
     document.getElementById(`view-${tabId}`).classList.remove('hidden');
     if(tabId === 'dashboard') loadDashboard();
@@ -42,35 +46,35 @@ function switchTab(tabId) {
 }
 
 // --- CURRENCY LOGIC ---
-function changeCurrency() {
+window.changeCurrency = function() {
     activeCurrency = document.getElementById('currency-select').value;
     localStorage.setItem('currency', activeCurrency);
-    loadProducts(); // Refresh prices
-    updateCartUI(); // Refresh cart totals
+    loadProducts();
+    updateCartUI();
 }
 
 function formatPrice(usdPrice) {
     const price = usdPrice * rates[activeCurrency];
-    const display = activeCurrency === 'IDR' 
-        ? price.toLocaleString('id-ID') 
+    const display = activeCurrency === 'IDR'
+        ? price.toLocaleString('id-ID')
         : price.toFixed(2);
     return `${symbols[activeCurrency]}${display}`;
 }
 
 // --- AUTH SYSTEM ---
-function checkRole() {
+window.checkRole = function() {
     const input = document.getElementById('role-code').value;
     if(input === ADMIN_CODE) userRole = 'admin';
     else if (input === SELLER_CODE) userRole = 'seller';
     else return alert("Wrong code!");
-    
+
     showToast(`Welcome ${userRole}!`);
     localStorage.setItem('storeRole', userRole);
     document.getElementById('role-code').value = '';
     switchTab('dashboard');
 }
 
-function logout() {
+window.logout = function() {
     userRole = 'buyer';
     localStorage.setItem('storeRole', 'buyer');
     switchTab('home');
@@ -78,19 +82,27 @@ function logout() {
 }
 
 // --- PRODUCT LOGIC (CATALOGUE) ---
-function loadProducts() {
+window.loadProducts = function() {
     const grid = document.getElementById('product-grid');
-    
+    grid.innerHTML = '<div class="col-span-2 text-center text-gray-400 mt-10">Loading...</div>';
+
     db.collection('products').where('status', '==', 'approved').get().then(snap => {
         grid.innerHTML = '';
+        productsMap = {}; // Reset map
+
+        if(snap.empty) {
+            grid.innerHTML = '<div class="col-span-2 text-center text-gray-400 mt-10">No products found.</div>';
+            return;
+        }
+
         snap.forEach(doc => {
             const p = doc.data();
-            const dataStr = encodeURIComponent(JSON.stringify({id: doc.id, ...p}));
-            
-            // UPDATE: Only showing Image, Name, and Price. 
-            // The Image is inside a square container (img-container)
+            const id = doc.id;
+            // Store data in memory map
+            productsMap[id] = { id, ...p };
+
             grid.innerHTML += `
-                <div class="product-card" onclick="openProductDetail('${dataStr}')">
+                <div class="product-card" onclick="openProductDetail('${id}')">
                     <div class="img-container">
                         <img src="${p.image}" class="product-img" onerror="this.src='https://via.placeholder.com/150'">
                     </div>
@@ -106,31 +118,39 @@ function loadProducts() {
 }
 
 // --- MODAL LOGIC (FULL INFO) ---
-function openProductDetail(dataStr) {
-    const p = JSON.parse(decodeURIComponent(dataStr));
+window.openProductDetail = function(id) {
+    const p = productsMap[id];
+    if(!p) return console.error("Product not found in map");
+
     const modal = document.getElementById('product-modal');
     const content = document.getElementById('modal-content');
-    
+
     // Fill Info
     document.getElementById('modal-img').src = p.image;
     document.getElementById('modal-title').textContent = p.name;
     document.getElementById('modal-seller').textContent = `Uploaded by: ${p.seller}`;
     document.getElementById('modal-price').textContent = formatPrice(p.price);
     document.getElementById('modal-desc').textContent = p.description || "No description provided.";
-    
+
     // Setup Add Button
     const btn = document.getElementById('modal-add-btn');
-    btn.onclick = () => {
+    // Remove old listeners to prevent duplicates (simple clone replacement)
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+
+    newBtn.onclick = () => {
         addToCart(p.id, p.name, p.price, p.image);
         closeModal();
     };
+    // Re-add text content because cloneNode might not be perfect with dynamic text sometimes, but here it's fine.
+    newBtn.textContent = "Add to Cart";
 
     // Show
     modal.classList.remove('opacity-0', 'pointer-events-none');
     content.classList.remove('translate-y-full');
 }
 
-function closeModal() {
+window.closeModal = function() {
     const modal = document.getElementById('product-modal');
     const content = document.getElementById('modal-content');
     modal.classList.add('opacity-0', 'pointer-events-none');
@@ -138,7 +158,7 @@ function closeModal() {
 }
 
 // --- ADD PRODUCT ---
-function addProduct() {
+window.addProduct = function() {
     const name = document.getElementById('prod-name').value;
     const price = parseFloat(document.getElementById('prod-price').value);
     const seller = document.getElementById('prod-seller').value;
@@ -162,7 +182,7 @@ function addProduct() {
 }
 
 // --- DASHBOARD ---
-function loadDashboard() {
+window.loadDashboard = function() {
     document.getElementById('dashboard-role').textContent = userRole.toUpperCase();
     if(userRole === 'buyer') { switchTab('login'); return; }
 
@@ -212,11 +232,11 @@ function loadDashboard() {
     });
 }
 
-function updateStatus(id, status) { db.collection('products').doc(id).update({ status }).then(() => loadDashboard()); }
-function deleteProduct(id) { if(confirm("Delete?")) db.collection('products').doc(id).delete().then(() => loadDashboard()); }
+window.updateStatus = function(id, status) { db.collection('products').doc(id).update({ status }).then(() => loadDashboard()); }
+window.deleteProduct = function(id) { if(confirm("Delete?")) db.collection('products').doc(id).delete().then(() => loadDashboard()); }
 
 // --- CART LOGIC ---
-function addToCart(id, name, price, image) {
+window.addToCart = function(id, name, price, image) {
     const existing = cart.find(item => item.id === id);
     if(existing) {
         existing.qty++;
@@ -227,7 +247,7 @@ function addToCart(id, name, price, image) {
     showToast("Added to Cart!");
 }
 
-function updateQty(id, change) {
+window.updateQty = function(id, change) {
     const item = cart.find(i => i.id === id);
     if(!item) return;
     item.qty += change;
@@ -240,16 +260,16 @@ function saveCart() {
     updateCartUI();
 }
 
-function updateCartUI() {
+window.updateCartUI = function() {
     const count = cart.reduce((acc, item) => acc + item.qty, 0);
     document.getElementById('cart-count').textContent = count;
     document.getElementById('cart-count').classList.toggle('hidden', count === 0);
-    
+
     const container = document.getElementById('cart-items');
     let totalUSD = 0;
-    
+
     container.innerHTML = '';
-    
+
     if(cart.length === 0) {
         container.innerHTML = '<div class="text-center text-gray-400 mt-10">Cart is empty.</div>';
     } else {
@@ -277,7 +297,7 @@ function updateCartUI() {
     lucide.createIcons();
 }
 
-function checkoutWhatsApp() {
+window.checkoutWhatsApp = function() {
     if(cart.length === 0) return alert("Cart is empty!");
     let msg = "Hi! I would like to buy:%0A";
     let totalUSD = 0;
@@ -291,7 +311,7 @@ function checkoutWhatsApp() {
 }
 
 // --- UTILS ---
-function showToast(msg) {
+window.showToast = function(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg;
     t.classList.remove('hidden');

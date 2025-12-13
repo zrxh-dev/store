@@ -1,67 +1,82 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
 
+/* --- RESET & BASE --- */
+html, body { 
+    height: 100%; 
+    width: 100%; 
+    margin: 0; 
+    padding: 0; 
+    overflow: hidden; /* Prevent body scroll, we scroll internal divs instead */
+}
+
 body {
     font-family: 'Inter', sans-serif;
+    background-color: #f3f4f6; /* Gray-100 */
+    color: #1f2937; /* Gray-800 */
+    -webkit-tap-highlight-color: transparent;
 }
 
-.view-section { transition: opacity 0.2s ease; }
-.hidden { display: none !important; }
-
-/* === SHOPEE STYLE CARD === */
-.shopee-card {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 4px; /* Shopee cards are slightly sharp */
-    overflow: hidden;
-    cursor: pointer;
-    transition: transform 0.1s, box-shadow 0.1s;
-    display: flex;
-    flex-direction: column;
+/* --- UTILITIES --- */
+.hidden { 
+    display: none !important; 
 }
 
-.shopee-card:hover {
-    border-color: #f97316; /* Orange border on hover */
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+.view-section { 
+    transition: opacity 0.2s ease; 
 }
 
-/* Forces image container to be a square */
-.card-img-container {
-    width: 100%;
-    aspect-ratio: 1 / 1;
-    background-color: #f3f4f6;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 8px; /* Padding inside the box */
+/* --- CUSTOM SCROLLBAR --- */
+.custom-scroll::-webkit-scrollbar { 
+    width: 4px; 
 }
 
-.card-img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain; /* Ensures whole image is seen */
-    mix-blend-mode: multiply;
+.custom-scroll::-webkit-scrollbar-track { 
+    background: transparent; 
 }
 
-.card-info {
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    flex: 1;
+.custom-scroll::-webkit-scrollbar-thumb { 
+    background: #d1d5db; 
+    border-radius: 4px; 
 }
 
-/* Cuts off text after 2 lines */
+/* --- TEXT UTILITIES --- */
+/* Cuts off text after 2 lines with "..." */
 .line-clamp-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;
-    height: 2.5em; /* Fallback height */
+    height: 2.5em; /* Fallback height control */
     line-height: 1.25em;
 }
 
-/* Scrollbar */
-.custom-scroll::-webkit-scrollbar { width: 4px; }
-.custom-scroll::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+/* --- MODAL ANIMATION --- */
+@keyframes popIn {
+    from { 
+        transform: scale(0.95); 
+        opacity: 0; 
+    }
+    to { 
+        transform: scale(1); 
+        opacity: 1; 
+    }
+}
+
+.animate-pop {
+    animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* --- SHOPEE STYLE CARD --- */
+/* Note: These classes are primarily used in the JS generation, 
+   but we define base behaviors here for consistency */
+   
+.shopee-card {
+    /* Base styles are handled by Tailwind classes in JS, 
+       but we add specific hover interactions here */
+    transition: transform 0.1s ease, box-shadow 0.1s ease, border-color 0.1s ease;
+}
+
+.shopee-card:active {
+    transform: scale(0.98);
+}

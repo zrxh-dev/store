@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zrxh Store</title>
+    <title>Store</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <script src="https://unpkg.com/lucide@latest"></script>
     
     <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
@@ -14,138 +15,127 @@
 
     <link rel="stylesheet" href="index.css">
 </head>
-<body class="h-[100dvh] w-full overflow-hidden bg-gray-50 text-gray-800 font-sans relative transition-colors duration-300">
+<body class="bg-gray-100 text-gray-800 font-sans h-[100dvh] w-full overflow-hidden flex flex-col">
 
-    <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 bg-black/80 text-white px-6 py-3 rounded-full text-sm font-bold shadow-xl z-[99999] hidden transition-all">
-        Notification
-    </div>
-
-    <div class="fixed inset-0 pointer-events-none z-0">
-        <div class="absolute inset-0 bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100"></div>
-        <div class="absolute inset-0 bg-white/30 backdrop-blur-[100px]"></div>
-    </div>
-
-    <main id="view-home" class="view-section h-full flex flex-col relative z-10">
-        <header class="p-6 flex justify-between items-center">
-            <div>
-                <h1 class="text-2xl font-black text-gray-800 tracking-tight">STORE</h1>
-                
-                <select id="currency-select" onchange="changeCurrency()" class="bg-transparent text-xs text-gray-500 font-bold outline-none cursor-pointer">
-                    <option value="USD">USD ($)</option>
-                    <option value="MYR">MYR (RM)</option>
-                    <option value="IDR">IDR (Rp)</option>
+    <header class="bg-white shadow-sm z-30 relative">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <h1 onclick="switchTab('home')" class="text-xl font-black text-orange-600 tracking-tighter cursor-pointer">SHOP</h1>
+                <select id="currency-select" onchange="changeCurrency()" class="bg-gray-100 text-xs font-bold px-2 py-1 rounded outline-none cursor-pointer">
+                    <option value="USD">USD</option>
+                    <option value="MYR">MYR</option>
+                    <option value="IDR">IDR</option>
                 </select>
             </div>
-            <div class="flex gap-3">
-                <button onclick="switchTab('cart')" class="relative p-2 bg-white rounded-full shadow-sm hover:shadow-md transition-all">
-                    <i data-lucide="shopping-bag" class="w-5 h-5 text-gray-700"></i>
-                    <span id="cart-count" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center hidden">0</span>
+
+            <div class="flex items-center gap-4">
+                <button onclick="switchTab('cart')" class="relative">
+                    <i data-lucide="shopping-cart" class="w-6 h-6 text-gray-700"></i>
+                    <span id="cart-count" class="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center hidden">0</span>
                 </button>
-                <button onclick="switchTab('login')" class="p-2 bg-gray-800 text-white rounded-full shadow-sm hover:bg-gray-700 transition-all">
-                    <i data-lucide="user" class="w-5 h-5"></i>
+                <button onclick="switchTab('login')">
+                    <i data-lucide="user" class="w-6 h-6 text-gray-700"></i>
                 </button>
             </div>
-        </header>
-
-        <div id="product-grid" class="flex-1 overflow-y-auto p-6 pt-0 grid grid-cols-2 gap-4 pb-24 custom-scroll">
-            <div class="col-span-2 text-center mt-10 text-gray-400 text-sm animate-pulse">Loading products...</div>
         </div>
-    </main>
+    </header>
 
-    <div id="product-modal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-none opacity-0 transition-opacity duration-300">
-        <div onclick="closeModal()" class="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto"></div>
+    <div class="flex-1 overflow-hidden relative w-full max-w-7xl mx-auto">
         
-        <div class="bg-white w-full sm:w-[400px] h-[85vh] sm:h-auto sm:rounded-2xl rounded-t-3xl p-6 relative pointer-events-auto transform translate-y-full transition-transform duration-300 flex flex-col" id="modal-content">
-            
-            <button onclick="closeModal()" class="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><i data-lucide="x" class="w-4 h-4"></i></button>
+        <main id="view-home" class="view-section h-full overflow-y-auto p-4 custom-scroll">
+            <div id="product-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 pb-24">
+                <div class="col-span-full text-center mt-10 text-gray-400">Loading items...</div>
+            </div>
+        </main>
 
-            <img id="modal-img" src="" class="w-full h-64 object-cover rounded-xl mb-4 bg-gray-100">
-            
-            <div class="flex-1 overflow-y-auto mb-4">
-                <h2 id="modal-title" class="text-2xl font-black text-gray-900 leading-tight">Product Name</h2>
-                <p id="modal-seller" class="text-xs text-gray-500 uppercase font-bold tracking-wider mb-2">By Seller</p>
-                <p id="modal-price" class="text-xl font-bold text-blue-600 mb-4">$0.00</p>
-                
-                <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-1">Description</h4>
-                    <p id="modal-desc" class="text-sm text-gray-600 leading-relaxed">No description available.</p>
+        <main id="view-cart" class="view-section hidden h-full flex flex-col bg-white">
+            <div class="p-4 border-b flex items-center gap-2">
+                <button onclick="switchTab('home')"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                <h2 class="font-bold text-lg">My Cart</h2>
+            </div>
+            <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-4 custom-scroll">
+                </div>
+            <div class="p-4 border-t bg-gray-50">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-gray-500">Total:</span>
+                    <span id="cart-total" class="text-xl font-bold text-orange-600">$0.00</span>
+                </div>
+                <button onclick="checkoutWhatsApp()" class="w-full bg-green-500 text-white font-bold py-3 rounded shadow hover:bg-green-600">
+                    Checkout WhatsApp
+                </button>
+            </div>
+        </main>
+
+        <main id="view-dashboard" class="view-section hidden h-full overflow-y-auto p-4 bg-gray-50 custom-scroll">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">Dashboard</h2>
+                <div class="flex items-center gap-2">
+                    <span id="dashboard-role" class="px-2 py-1 bg-black text-white text-xs font-bold rounded uppercase">GUEST</span>
+                    <button onclick="logout()" class="text-red-500 text-sm underline">Logout</button>
                 </div>
             </div>
 
-            <button id="modal-add-btn" class="w-full bg-gray-900 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                Add to Cart
-            </button>
-        </div>
-    </div>
-
-    <main id="view-cart" class="view-section hidden h-full flex flex-col relative z-10 bg-white/50 backdrop-blur-xl">
-        <header class="p-6 flex items-center gap-4 border-b border-white/50">
-            <button onclick="switchTab('home')" class="p-2 hover:bg-black/5 rounded-full"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
-            <h1 class="text-xl font-bold">Your Cart</h1>
-        </header>
-
-        <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-3 pb-24 custom-scroll">
-            <div class="text-center text-gray-400 mt-10">Your cart is empty.</div>
-        </div>
-
-        <div class="p-6 bg-white border-t border-gray-100 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
-            <div class="flex justify-between items-center mb-4">
-                <span class="text-sm text-gray-500">Total</span>
-                <span id="cart-total" class="text-2xl font-black text-gray-800">$0.00</span>
-            </div>
-            <button onclick="checkoutWhatsApp()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-green-500/30 flex items-center justify-center gap-2 transition-all active:scale-95">
-                <i data-lucide="message-circle" class="w-5 h-5"></i> Checkout on WhatsApp
-            </button>
-        </div>
-    </main>
-
-    <main id="view-dashboard" class="view-section hidden h-full flex flex-col relative z-10 bg-gray-50">
-        <header class="p-6 bg-gray-900 text-white flex justify-between items-center shadow-lg">
-            <div>
-                <h1 class="text-xl font-bold" id="dashboard-title">Dashboard</h1>
-                <p class="text-xs text-gray-400" id="dashboard-role">Guest</p>
-            </div>
-            <button onclick="logout()" class="text-xs text-red-400 hover:text-white border border-red-900 px-3 py-1 rounded">Logout</button>
-        </header>
-
-        <div class="flex-1 overflow-y-auto p-6 pb-24 custom-scroll">
-            
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
-                <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4"></i> Add Product</h3>
-                <div class="space-y-3">
-                    <input type="text" id="prod-name" placeholder="Product Name" class="w-full bg-gray-50 border rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-                    <div class="flex gap-3">
-                        <input type="number" id="prod-price" placeholder="Price (USD)" class="w-1/2 bg-gray-50 border rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-                        <input type="text" id="prod-seller" placeholder="Seller Name" class="w-1/2 bg-gray-50 border rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+            <div class="bg-white p-5 rounded-lg shadow-sm mb-6 border border-gray-200">
+                <h3 class="font-bold mb-3">Upload Item</h3>
+                <div class="grid gap-3">
+                    <input id="prod-name" placeholder="Item Name" class="border p-2 rounded w-full">
+                    <div class="flex gap-2">
+                        <input id="prod-price" type="number" placeholder="Price (USD)" class="border p-2 rounded w-1/2">
+                        <input id="prod-seller" placeholder="Publisher Name" class="border p-2 rounded w-1/2">
                     </div>
-                    <textarea id="prod-desc" placeholder="Product Description..." class="w-full bg-gray-50 border rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 h-20"></textarea>
-                    
-                    <input type="text" id="prod-img" placeholder="Image URL (https://...)" class="w-full bg-gray-50 border rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-                    <button onclick="addProduct()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-all">Upload Item</button>
+                    <textarea id="prod-desc" placeholder="Description" class="border p-2 rounded w-full h-20"></textarea>
+                    <input id="prod-img" placeholder="Image Link (URL)" class="border p-2 rounded w-full">
+                    <button onclick="addProduct()" class="bg-black text-white font-bold py-2 rounded">Submit</button>
                 </div>
             </div>
 
             <div id="admin-approvals" class="hidden mb-6">
-                <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="shield-alert" class="w-4 h-4 text-orange-500"></i> Pending Approval</h3>
-                <div id="pending-list" class="space-y-3"></div>
+                <h3 class="font-bold text-orange-600 mb-2">Pending Approval</h3>
+                <div id="pending-list" class="space-y-2"></div>
             </div>
 
             <div>
-                <h3 class="font-bold text-gray-800 mb-3">Live Catalogue</h3>
-                <div id="manage-list" class="space-y-3"></div>
+                <h3 class="font-bold mb-2">Live Products</h3>
+                <div id="manage-list" class="space-y-2"></div>
+            </div>
+        </main>
+
+        <main id="view-login" class="view-section hidden h-full flex items-center justify-center p-6 bg-white">
+            <div class="w-full max-w-sm text-center">
+                <h2 class="text-2xl font-bold mb-4">Staff Login</h2>
+                <input type="password" id="role-code" placeholder="Enter Access Code" class="w-full border p-3 rounded mb-4 text-center">
+                <button onclick="checkRole()" class="w-full bg-black text-white font-bold py-3 rounded mb-4">Login</button>
+                <button onclick="switchTab('home')" class="text-gray-500 text-sm">Cancel</button>
+            </div>
+        </main>
+    </div>
+
+    <div id="product-modal" class="fixed inset-0 z-50 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200">
+        <div onclick="closeModal()" class="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"></div>
+        <div id="modal-content" class="bg-white w-[90%] max-w-md max-h-[80vh] rounded-lg overflow-hidden shadow-2xl pointer-events-auto transform scale-95 transition-transform duration-200 flex flex-col">
+            
+            <div class="relative w-full aspect-square bg-gray-100 flex items-center justify-center">
+                <img id="modal-img" src="" class="max-w-full max-h-full object-contain">
+                <button onclick="closeModal()" class="absolute top-2 right-2 bg-white/80 p-1 rounded-full"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+
+            <div class="p-5 overflow-y-auto">
+                <h2 id="modal-title" class="text-xl font-bold leading-tight mb-1">Product Name</h2>
+                <div class="flex justify-between items-center mb-4">
+                    <p id="modal-price" class="text-xl font-black text-orange-600">$0.00</p>
+                    <p id="modal-seller" class="text-xs text-gray-500 uppercase tracking-wide">Publisher</p>
+                </div>
+                <div class="bg-gray-50 p-3 rounded text-sm text-gray-700 mb-4" id="modal-desc">
+                    Description...
+                </div>
+                <button id="modal-add-btn" class="w-full bg-orange-600 text-white font-bold py-3 rounded shadow hover:bg-orange-700">
+                    Add to Cart
+                </button>
             </div>
         </div>
-    </main>
+    </div>
 
-    <main id="view-login" class="view-section hidden h-full flex flex-col items-center justify-center p-8 relative z-20 bg-white">
-        <div class="w-full max-w-sm text-center">
-            <div class="w-20 h-20 bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-6 text-white"><i data-lucide="lock" class="w-8 h-8"></i></div>
-            <h2 class="text-2xl font-bold mb-2">Staff Access</h2>
-            <input type="password" id="role-code" placeholder="Enter Secret Code" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-center text-lg mb-4 mt-6 outline-none focus:border-gray-900 transition-colors">
-            <button onclick="checkRole()" class="w-full bg-gray-900 text-white font-bold py-4 rounded-xl hover:scale-[1.02] transition-transform">Access Dashboard</button>
-            <button onclick="switchTab('home')" class="mt-6 text-gray-400 text-sm hover:text-gray-900">Back to Store</button>
-        </div>
-    </main>
+    <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 bg-black text-white px-4 py-2 rounded shadow-lg text-sm hidden z-[60]">Alert</div>
 
     <script src="index.js"></script>
 </body>

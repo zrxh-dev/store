@@ -25,32 +25,49 @@ const db = firebase.firestore();
 // --- STATE ---
 let userRole = localStorage.getItem('storeRole') || 'buyer';
 let cart = JSON.parse(localStorage.getItem('cart')) || [];
-let productsMap = {}; // CRITICAL: Stores product data for clicks
+let productsMap = {}; 
 
-// --- INIT ---
+// --- INIT LISTENERS ---
 document.addEventListener('DOMContentLoaded', () => {
+    // Buttons
+    document.getElementById('btn-home').addEventListener('click', () => switchTab('home'));
+    document.getElementById('btn-cart').addEventListener('click', () => switchTab('cart'));
+    document.getElementById('btn-login').addEventListener('click', () => switchTab('login'));
+    document.getElementById('btn-back-home').addEventListener('click', () => switchTab('home'));
+    document.getElementById('btn-cancel-login').addEventListener('click', () => switchTab('home'));
+    document.getElementById('btn-logout').addEventListener('click', logout);
+    document.getElementById('btn-check-role').addEventListener('click', checkRole);
+    document.getElementById('btn-add-prod').addEventListener('click', addProduct);
+    document.getElementById('btn-checkout').addEventListener('click', checkoutWhatsApp);
+    document.getElementById('btn-close-modal').addEventListener('click', closeModal);
+    document.getElementById('modal-backdrop').addEventListener('click', closeModal);
+    
+    // Inputs
     document.getElementById('currency-select').value = activeCurrency;
+    document.getElementById('currency-select').addEventListener('change', changeCurrency);
+
+    // Initial Load
     lucide.createIcons();
     loadProducts();
     updateCartUI();
 });
 
 // --- NAVIGATION ---
-window.switchTab = function(tab) {
+function switchTab(tab) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
     document.getElementById(`view-${tab}`).classList.remove('hidden');
     if(tab === 'dashboard') loadDashboard();
     if(tab === 'home') loadProducts();
 }
 
-// --- CATALOGUE ---
-window.loadProducts = function() {
+// --- CATALOGUE (FIXED CLICKS) ---
+function loadProducts() {
     const grid = document.getElementById('product-grid');
     grid.innerHTML = '<div class="col-span-full text-center mt-10 text-gray-400">Loading...</div>';
 
     db.collection('products').where('status', '==', 'approved').get().then(snap => {
         grid.innerHTML = '';
-        productsMap = {}; // Reset map
+        productsMap = {}; 
 
         if(snap.empty) {
             grid.innerHTML = '<div class="col-span-full text-center text-gray-400">No items found.</div>';
@@ -60,31 +77,35 @@ window.loadProducts = function() {
         snap.forEach(doc => {
             const p = doc.data();
             const id = doc.id;
-            productsMap[id] = { id, ...p }; // Save to memory
+            productsMap[id] = { id, ...p };
 
-            // SHOPEE STYLE CARD
-            grid.innerHTML += `
-                <div class="shopee-card" onclick="openModal('${id}')">
-                    <div class="card-img-container">
-                        <img src="${p.image}" class="card-img" onerror="this.src='https://via.placeholder.com/150'">
-                    </div>
-                    <div class="card-info">
-                        <div class="text-sm text-gray-800 font-normal leading-tight line-clamp-2 mb-1">${p.name}</div>
-                        
-                        <div class="mt-auto">
-                            <div class="text-orange-600 font-bold text-base">${formatPrice(p.price)}</div>
-                            <div class="text-[10px] text-gray-400 truncate mt-1">By ${p.seller}</div>
-                        </div>
+            // Create Element Manually to ensure Click Works
+            const card = document.createElement('div');
+            card.className = 'shopee-card bg-white border border-gray-200 rounded overflow-hidden cursor-pointer hover:border-orange-500 transition-all flex flex-col';
+            card.innerHTML = `
+                <div class="w-full aspect-square bg-gray-100 flex items-center justify-center p-2">
+                    <img src="${p.image}" class="max-w-full max-h-full object-contain mix-blend-multiply" onerror="this.src='https://via.placeholder.com/150'">
+                </div>
+                <div class="p-2 flex flex-col flex-1">
+                    <div class="text-sm text-gray-800 font-normal leading-tight line-clamp-2 mb-1 h-10 overflow-hidden">${p.name}</div>
+                    <div class="mt-auto">
+                        <div class="text-orange-600 font-bold text-base">${formatPrice(p.price)}</div>
+                        <div class="text-[10px] text-gray-400 truncate mt-1">By ${p.seller}</div>
                     </div>
                 </div>
             `;
+            
+            // DIRECT CLICK LISTENER
+            card.addEventListener('click', () => openModal(id));
+            
+            grid.appendChild(card);
         });
         lucide.createIcons();
     });
 }
 
-// --- MODAL (POPUP) ---
-window.openModal = function(id) {
+// --- MODAL ---
+function openModal(id) {
     const p = productsMap[id];
     if(!p) return;
 
@@ -94,41 +115,34 @@ window.openModal = function(id) {
     document.getElementById('modal-seller').textContent = `Publisher: ${p.seller}`;
     document.getElementById('modal-desc').textContent = p.description || "No description.";
 
-    // Logic to update Add Button (clone to remove old listeners)
+    // Update Add Button
     const btn = document.getElementById('modal-add-btn');
     const newBtn = btn.cloneNode(true);
     btn.parentNode.replaceChild(newBtn, btn);
-    
-    newBtn.onclick = () => {
+    newBtn.addEventListener('click', () => {
         addToCart(p.id, p.name, p.price, p.image);
         closeModal();
-    };
+    });
 
-    // Animation classes
+    // Show Modal
     const modal = document.getElementById('product-modal');
-    const content = document.getElementById('modal-content');
-    modal.classList.remove('opacity-0', 'pointer-events-none');
-    content.classList.remove('scale-95');
+    modal.classList.remove('hidden');
 }
 
-window.closeModal = function() {
-    const modal = document.getElementById('product-modal');
-    const content = document.getElementById('modal-content');
-    modal.classList.add('opacity-0', 'pointer-events-none');
-    content.classList.add('scale-95');
+function closeModal() {
+    document.getElementById('product-modal').classList.add('hidden');
 }
 
 // --- CART ---
-window.addToCart = function(id, name, price, image) {
+function addToCart(id, name, price, image) {
     const existing = cart.find(i => i.id === id);
     if(existing) existing.qty++;
     else cart.push({ id, name, price, image, qty: 1 });
-    
     saveCart();
     showToast("Added to Cart!");
 }
 
-window.updateQty = function(id, delta) {
+function updateQty(id, delta) {
     const item = cart.find(i => i.id === id);
     if(!item) return;
     item.qty += delta;
@@ -141,10 +155,11 @@ function saveCart() {
     updateCartUI();
 }
 
-window.updateCartUI = function() {
+function updateCartUI() {
     const count = cart.reduce((acc, i) => acc + i.qty, 0);
-    document.getElementById('cart-count').textContent = count;
-    document.getElementById('cart-count').classList.toggle('hidden', count === 0);
+    const countBadge = document.getElementById('cart-count');
+    countBadge.textContent = count;
+    countBadge.classList.toggle('hidden', count === 0);
 
     const container = document.getElementById('cart-items');
     let totalUSD = 0;
@@ -154,26 +169,33 @@ window.updateCartUI = function() {
     else {
         cart.forEach(item => {
             totalUSD += item.price * item.qty;
-            container.innerHTML += `
-                <div class="flex items-center gap-3 bg-gray-50 p-2 rounded border">
-                    <img src="${item.image}" class="w-16 h-16 object-cover rounded bg-white">
-                    <div class="flex-1">
-                        <div class="text-sm font-bold line-clamp-1">${item.name}</div>
-                        <div class="text-xs text-orange-600 font-bold">${formatPrice(item.price)}</div>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <button onclick="updateQty('${item.id}', -1)" class="w-6 h-6 flex items-center justify-center bg-white border rounded shadow-sm hover:text-red-500">-</button>
-                        <span class="text-sm font-bold w-4 text-center">${item.qty}</span>
-                        <button onclick="updateQty('${item.id}', 1)" class="w-6 h-6 flex items-center justify-center bg-black text-white rounded shadow-sm">+</button>
-                    </div>
+            
+            // Create Cart Item
+            const div = document.createElement('div');
+            div.className = 'flex items-center gap-3 bg-gray-50 p-2 rounded border';
+            div.innerHTML = `
+                <img src="${item.image}" class="w-16 h-16 object-cover rounded bg-white">
+                <div class="flex-1">
+                    <div class="text-sm font-bold truncate">${item.name}</div>
+                    <div class="text-xs text-orange-600 font-bold">${formatPrice(item.price)}</div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button class="btn-minus w-6 h-6 flex items-center justify-center bg-white border rounded shadow-sm hover:text-red-500">-</button>
+                    <span class="text-sm font-bold w-4 text-center">${item.qty}</span>
+                    <button class="btn-plus w-6 h-6 flex items-center justify-center bg-black text-white rounded shadow-sm">+</button>
                 </div>
             `;
+            
+            div.querySelector('.btn-minus').onclick = () => updateQty(item.id, -1);
+            div.querySelector('.btn-plus').onclick = () => updateQty(item.id, 1);
+            
+            container.appendChild(div);
         });
     }
     document.getElementById('cart-total').textContent = formatPrice(totalUSD);
 }
 
-window.checkoutWhatsApp = function() {
+function checkoutWhatsApp() {
     if(cart.length === 0) return alert("Empty!");
     let msg = "Order Request:%0A";
     let total = 0;
@@ -186,7 +208,7 @@ window.checkoutWhatsApp = function() {
 }
 
 // --- ADMIN / DASHBOARD ---
-window.loadDashboard = function() {
+function loadDashboard() {
     document.getElementById('dashboard-role').textContent = userRole;
     if(userRole === 'buyer') { switchTab('login'); return; }
 
@@ -194,43 +216,51 @@ window.loadDashboard = function() {
     const pList = document.getElementById('pending-list');
     const mList = document.getElementById('manage-list');
 
+    // Load Pending
     if(userRole === 'admin') {
         pendingDiv.classList.remove('hidden');
         db.collection('products').where('status', '==', 'pending').get().then(snap => {
             pList.innerHTML = snap.empty ? '<div class="text-xs text-gray-400">None.</div>' : '';
             snap.forEach(doc => {
                 const p = doc.data();
-                pList.innerHTML += `
-                    <div class="flex justify-between items-center bg-white p-2 rounded border shadow-sm">
-                        <div class="text-sm">${p.name} <span class="text-xs text-gray-500">($${p.price})</span></div>
-                        <div class="flex gap-2">
-                            <button onclick="setStatus('${doc.id}', 'approved')" class="text-green-500"><i data-lucide="check" class="w-4 h-4"></i></button>
-                            <button onclick="delProd('${doc.id}')" class="text-red-500"><i data-lucide="trash" class="w-4 h-4"></i></button>
-                        </div>
+                const d = document.createElement('div');
+                d.className = 'flex justify-between items-center bg-white p-2 rounded border shadow-sm';
+                d.innerHTML = `
+                    <div class="text-sm">${p.name} <span class="text-xs text-gray-500">($${p.price})</span></div>
+                    <div class="flex gap-2">
+                        <button class="btn-approve text-green-500"><i data-lucide="check" class="w-4 h-4"></i></button>
+                        <button class="btn-del text-red-500"><i data-lucide="trash" class="w-4 h-4"></i></button>
                     </div>`;
+                d.querySelector('.btn-approve').onclick = () => setStatus(doc.id, 'approved');
+                d.querySelector('.btn-del').onclick = () => delProd(doc.id);
+                pList.appendChild(d);
             });
             lucide.createIcons();
         });
     } else { pendingDiv.classList.add('hidden'); }
 
+    // Load Approved
     db.collection('products').where('status', '==', 'approved').get().then(snap => {
         mList.innerHTML = '';
         snap.forEach(doc => {
             const p = doc.data();
-            mList.innerHTML += `
-                <div class="flex justify-between items-center bg-white p-2 rounded border shadow-sm">
-                    <div class="flex items-center gap-2">
-                        <img src="${p.image}" class="w-8 h-8 object-cover rounded">
-                        <div class="text-sm truncate w-32">${p.name}</div>
-                    </div>
-                    ${userRole === 'admin' ? `<button onclick="delProd('${doc.id}')" class="text-red-400"><i data-lucide="trash" class="w-4 h-4"></i></button>` : ''}
-                </div>`;
+            const d = document.createElement('div');
+            d.className = 'flex justify-between items-center bg-white p-2 rounded border shadow-sm';
+            d.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <img src="${p.image}" class="w-8 h-8 object-cover rounded">
+                    <div class="text-sm truncate w-32">${p.name}</div>
+                </div>
+                ${userRole === 'admin' ? `<button class="btn-del text-red-400"><i data-lucide="trash" class="w-4 h-4"></i></button>` : ''}
+            `;
+            if(userRole === 'admin') d.querySelector('.btn-del').onclick = () => delProd(doc.id);
+            mList.appendChild(d);
         });
         lucide.createIcons();
     });
 }
 
-window.addProduct = function() {
+function addProduct() {
     const name = document.getElementById('prod-name').value;
     const price = parseFloat(document.getElementById('prod-price').value);
     const seller = document.getElementById('prod-seller').value;
@@ -251,10 +281,10 @@ window.addProduct = function() {
     });
 }
 
-window.setStatus = (id, s) => db.collection('products').doc(id).update({status: s}).then(()=>loadDashboard());
-window.delProd = (id) => confirm("Delete?") && db.collection('products').doc(id).delete().then(()=>loadDashboard());
+function setStatus(id, s) { db.collection('products').doc(id).update({status: s}).then(()=>loadDashboard()); }
+function delProd(id) { if(confirm("Delete?")) db.collection('products').doc(id).delete().then(()=>loadDashboard()); }
 
-window.checkRole = function() {
+function checkRole() {
     const code = document.getElementById('role-code').value;
     if(code === ADMIN_CODE) userRole = 'admin';
     else if(code === SELLER_CODE) userRole = 'seller';
@@ -264,14 +294,15 @@ window.checkRole = function() {
     switchTab('dashboard');
     document.getElementById('role-code').value = '';
 }
-window.logout = function() {
+
+function logout() {
     userRole = 'buyer';
     localStorage.setItem('storeRole', 'buyer');
     switchTab('home');
 }
 
 // --- UTILS ---
-window.changeCurrency = () => {
+function changeCurrency() {
     activeCurrency = document.getElementById('currency-select').value;
     localStorage.setItem('currency', activeCurrency);
     loadProducts(); updateCartUI();
@@ -282,7 +313,7 @@ function formatPrice(usd) {
     return `${symbols[activeCurrency]}${activeCurrency === 'IDR' ? val.toLocaleString('id-ID') : val.toFixed(2)}`;
 }
 
-window.showToast = (msg) => {
+function showToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg; t.classList.remove('hidden');
     setTimeout(() => t.classList.add('hidden'), 2000);

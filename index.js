@@ -1,14 +1,14 @@
 // --- CONFIGURATION ---
 const ADMIN_CODE = "admin123";
 const SELLER_CODE = "seller123";
-const WHATSAPP_NUMBER = "60123456789";
+const WHATSAPP_NUMBER = "60123456789"; 
 
-// --- CURRENCY SETTINGS ---
+// --- CURRENCY ---
 let activeCurrency = localStorage.getItem('currency') || 'USD';
 const rates = { 'USD': 1, 'MYR': 4.5, 'IDR': 16000 };
 const symbols = { 'USD': '$', 'MYR': 'RM', 'IDR': 'Rp ' };
 
-// --- FIREBASE CONFIG ---
+// --- FIREBASE INIT ---
 const firebaseConfig = {
     apiKey: "AIzaSyBcr6YxzsZ475J3c1rnQsuV7MWecxbRJ1E",
     authDomain: "aiapp-18eb8.firebaseapp.com",
@@ -19,15 +19,13 @@ const firebaseConfig = {
     measurementId: "G-BQQE0BGQ8X"
 };
 
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 // --- STATE ---
 let userRole = localStorage.getItem('storeRole') || 'buyer';
 let cart = JSON.parse(localStorage.getItem('cart')) || [];
-let productsMap = {}; // Safe storage for product data
+let productsMap = {}; // CRITICAL: Stores product data for clicks
 
 // --- INIT ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -38,77 +36,45 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // --- NAVIGATION ---
-window.switchTab = function(tabId) {
+window.switchTab = function(tab) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
-    document.getElementById(`view-${tabId}`).classList.remove('hidden');
-    if(tabId === 'dashboard') loadDashboard();
-    if(tabId === 'home') loadProducts();
+    document.getElementById(`view-${tab}`).classList.remove('hidden');
+    if(tab === 'dashboard') loadDashboard();
+    if(tab === 'home') loadProducts();
 }
 
-// --- CURRENCY LOGIC ---
-window.changeCurrency = function() {
-    activeCurrency = document.getElementById('currency-select').value;
-    localStorage.setItem('currency', activeCurrency);
-    loadProducts();
-    updateCartUI();
-}
-
-function formatPrice(usdPrice) {
-    const price = usdPrice * rates[activeCurrency];
-    const display = activeCurrency === 'IDR'
-        ? price.toLocaleString('id-ID')
-        : price.toFixed(2);
-    return `${symbols[activeCurrency]}${display}`;
-}
-
-// --- AUTH SYSTEM ---
-window.checkRole = function() {
-    const input = document.getElementById('role-code').value;
-    if(input === ADMIN_CODE) userRole = 'admin';
-    else if (input === SELLER_CODE) userRole = 'seller';
-    else return alert("Wrong code!");
-
-    showToast(`Welcome ${userRole}!`);
-    localStorage.setItem('storeRole', userRole);
-    document.getElementById('role-code').value = '';
-    switchTab('dashboard');
-}
-
-window.logout = function() {
-    userRole = 'buyer';
-    localStorage.setItem('storeRole', 'buyer');
-    switchTab('home');
-    showToast("Logged out");
-}
-
-// --- PRODUCT LOGIC (CATALOGUE) ---
+// --- CATALOGUE ---
 window.loadProducts = function() {
     const grid = document.getElementById('product-grid');
-    grid.innerHTML = '<div class="col-span-2 text-center text-gray-400 mt-10">Loading...</div>';
+    grid.innerHTML = '<div class="col-span-full text-center mt-10 text-gray-400">Loading...</div>';
 
     db.collection('products').where('status', '==', 'approved').get().then(snap => {
         grid.innerHTML = '';
         productsMap = {}; // Reset map
 
         if(snap.empty) {
-            grid.innerHTML = '<div class="col-span-2 text-center text-gray-400 mt-10">No products found.</div>';
+            grid.innerHTML = '<div class="col-span-full text-center text-gray-400">No items found.</div>';
             return;
         }
 
         snap.forEach(doc => {
             const p = doc.data();
             const id = doc.id;
-            // Store data in memory map
-            productsMap[id] = { id, ...p };
+            productsMap[id] = { id, ...p }; // Save to memory
 
+            // SHOPEE STYLE CARD
             grid.innerHTML += `
-                <div class="product-card" onclick="openProductDetail('${id}')">
-                    <div class="img-container">
-                        <img src="${p.image}" class="product-img" onerror="this.src='https://via.placeholder.com/150'">
+                <div class="shopee-card" onclick="openModal('${id}')">
+                    <div class="card-img-container">
+                        <img src="${p.image}" class="card-img" onerror="this.src='https://via.placeholder.com/150'">
                     </div>
-                    <div class="product-info">
-                        <div class="product-title">${p.name}</div>
-                        <div class="product-price-tag">${formatPrice(p.price)}</div>
+                    <div class="card-info">
+                        <div class="text-sm text-gray-800 font-normal leading-tight line-clamp-2 mb-1">${p.name}</div>
+                        
+                        <div class="mt-auto">
+                            <div class="text-orange-600 font-bold text-base">${formatPrice(p.price)}</div>
+                            <div class="text-[10px] text-gray-400 truncate mt-1">By ${p.seller}</div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -117,140 +83,55 @@ window.loadProducts = function() {
     });
 }
 
-// --- MODAL LOGIC (FULL INFO) ---
-window.openProductDetail = function(id) {
+// --- MODAL (POPUP) ---
+window.openModal = function(id) {
     const p = productsMap[id];
-    if(!p) return console.error("Product not found in map");
+    if(!p) return;
 
-    const modal = document.getElementById('product-modal');
-    const content = document.getElementById('modal-content');
-
-    // Fill Info
     document.getElementById('modal-img').src = p.image;
     document.getElementById('modal-title').textContent = p.name;
-    document.getElementById('modal-seller').textContent = `Uploaded by: ${p.seller}`;
     document.getElementById('modal-price').textContent = formatPrice(p.price);
-    document.getElementById('modal-desc').textContent = p.description || "No description provided.";
+    document.getElementById('modal-seller').textContent = `Publisher: ${p.seller}`;
+    document.getElementById('modal-desc').textContent = p.description || "No description.";
 
-    // Setup Add Button
+    // Logic to update Add Button (clone to remove old listeners)
     const btn = document.getElementById('modal-add-btn');
-    // Remove old listeners to prevent duplicates (simple clone replacement)
     const newBtn = btn.cloneNode(true);
     btn.parentNode.replaceChild(newBtn, btn);
-
+    
     newBtn.onclick = () => {
         addToCart(p.id, p.name, p.price, p.image);
         closeModal();
     };
-    // Re-add text content because cloneNode might not be perfect with dynamic text sometimes, but here it's fine.
-    newBtn.textContent = "Add to Cart";
 
-    // Show
+    // Animation classes
+    const modal = document.getElementById('product-modal');
+    const content = document.getElementById('modal-content');
     modal.classList.remove('opacity-0', 'pointer-events-none');
-    content.classList.remove('translate-y-full');
+    content.classList.remove('scale-95');
 }
 
 window.closeModal = function() {
     const modal = document.getElementById('product-modal');
     const content = document.getElementById('modal-content');
     modal.classList.add('opacity-0', 'pointer-events-none');
-    content.classList.add('translate-y-full');
+    content.classList.add('scale-95');
 }
 
-// --- ADD PRODUCT ---
-window.addProduct = function() {
-    const name = document.getElementById('prod-name').value;
-    const price = parseFloat(document.getElementById('prod-price').value);
-    const seller = document.getElementById('prod-seller').value;
-    const description = document.getElementById('prod-desc').value;
-    const image = document.getElementById('prod-img').value;
-
-    if(!name || !price || !seller) return alert("Fill all fields");
-
-    const status = userRole === 'admin' ? 'approved' : 'pending';
-
-    db.collection('products').add({
-        name, price, seller, description, image, status,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    }).then(() => {
-        alert(status === 'approved' ? "Product Live!" : "Sent for Approval!");
-        document.getElementById('prod-name').value = '';
-        document.getElementById('prod-desc').value = '';
-        document.getElementById('prod-price').value = '';
-        loadDashboard();
-    });
-}
-
-// --- DASHBOARD ---
-window.loadDashboard = function() {
-    document.getElementById('dashboard-role').textContent = userRole.toUpperCase();
-    if(userRole === 'buyer') { switchTab('login'); return; }
-
-    const pendingDiv = document.getElementById('admin-approvals');
-    const pList = document.getElementById('pending-list');
-    const list = document.getElementById('manage-list');
-
-    if(userRole === 'admin') {
-        pendingDiv.classList.remove('hidden');
-        db.collection('products').where('status', '==', 'pending').get().then(snap => {
-            pList.innerHTML = snap.empty ? '<div class="text-xs text-gray-400">No pending items.</div>' : '';
-            snap.forEach(doc => {
-                const p = doc.data();
-                pList.innerHTML += `
-                    <div class="admin-item">
-                        <div>
-                            <div class="font-bold text-sm">${p.name}</div>
-                            <div class="text-xs text-gray-500">${formatPrice(p.price)}</div>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick="updateStatus('${doc.id}', 'approved')" class="text-green-600"><i data-lucide="check"></i></button>
-                            <button onclick="deleteProduct('${doc.id}')" class="text-red-600"><i data-lucide="trash-2"></i></button>
-                        </div>
-                    </div>`;
-            });
-            lucide.createIcons();
-        });
-    } else { pendingDiv.classList.add('hidden'); }
-
-    db.collection('products').where('status', '==', 'approved').get().then(snap => {
-        list.innerHTML = '';
-        snap.forEach(doc => {
-            const p = doc.data();
-            list.innerHTML += `
-                <div class="admin-item">
-                    <div class="flex items-center gap-3">
-                        <img src="${p.image}" class="w-10 h-10 rounded object-cover">
-                        <div>
-                            <div class="font-bold text-sm">${p.name}</div>
-                            <div class="text-xs text-gray-500">${formatPrice(p.price)}</div>
-                        </div>
-                    </div>
-                    ${userRole === 'admin' ? `<button onclick="deleteProduct('${doc.id}')" class="text-red-400"><i data-lucide="trash"></i></button>` : ''}
-                </div>`;
-        });
-        lucide.createIcons();
-    });
-}
-
-window.updateStatus = function(id, status) { db.collection('products').doc(id).update({ status }).then(() => loadDashboard()); }
-window.deleteProduct = function(id) { if(confirm("Delete?")) db.collection('products').doc(id).delete().then(() => loadDashboard()); }
-
-// --- CART LOGIC ---
+// --- CART ---
 window.addToCart = function(id, name, price, image) {
-    const existing = cart.find(item => item.id === id);
-    if(existing) {
-        existing.qty++;
-    } else {
-        cart.push({ id, name, price, image, qty: 1 });
-    }
+    const existing = cart.find(i => i.id === id);
+    if(existing) existing.qty++;
+    else cart.push({ id, name, price, image, qty: 1 });
+    
     saveCart();
     showToast("Added to Cart!");
 }
 
-window.updateQty = function(id, change) {
+window.updateQty = function(id, delta) {
     const item = cart.find(i => i.id === id);
     if(!item) return;
-    item.qty += change;
+    item.qty += delta;
     if(item.qty <= 0) cart = cart.filter(i => i.id !== id);
     saveCart();
 }
@@ -261,59 +142,148 @@ function saveCart() {
 }
 
 window.updateCartUI = function() {
-    const count = cart.reduce((acc, item) => acc + item.qty, 0);
+    const count = cart.reduce((acc, i) => acc + i.qty, 0);
     document.getElementById('cart-count').textContent = count;
     document.getElementById('cart-count').classList.toggle('hidden', count === 0);
 
     const container = document.getElementById('cart-items');
     let totalUSD = 0;
-
     container.innerHTML = '';
 
-    if(cart.length === 0) {
-        container.innerHTML = '<div class="text-center text-gray-400 mt-10">Cart is empty.</div>';
-    } else {
+    if(cart.length === 0) container.innerHTML = '<div class="text-center text-gray-400 mt-10">Cart is empty.</div>';
+    else {
         cart.forEach(item => {
-            totalUSD += (item.price * item.qty);
+            totalUSD += item.price * item.qty;
             container.innerHTML += `
-                <div class="bg-white p-3 rounded-xl flex items-center gap-3 shadow-sm border border-gray-100">
-                    <img src="${item.image}" class="w-16 h-16 rounded-lg object-cover bg-gray-100">
+                <div class="flex items-center gap-3 bg-gray-50 p-2 rounded border">
+                    <img src="${item.image}" class="w-16 h-16 object-cover rounded bg-white">
                     <div class="flex-1">
-                        <div class="font-bold text-gray-800 text-sm leading-tight">${item.name}</div>
-                        <div class="text-blue-600 font-bold text-sm mt-1">${formatPrice(item.price)}</div>
+                        <div class="text-sm font-bold line-clamp-1">${item.name}</div>
+                        <div class="text-xs text-orange-600 font-bold">${formatPrice(item.price)}</div>
                     </div>
-                    <div class="flex items-center gap-2 bg-gray-50 rounded-lg p-1">
-                        <button onclick="updateQty('${item.id}', -1)" class="w-7 h-7 flex items-center justify-center bg-white rounded-md shadow-sm text-gray-600 hover:text-red-500 font-bold transition-colors">
-                            ${item.qty === 1 ? '<i data-lucide="trash-2" class="w-3 h-3"></i>' : '-'}
-                        </button>
+                    <div class="flex items-center gap-2">
+                        <button onclick="updateQty('${item.id}', -1)" class="w-6 h-6 flex items-center justify-center bg-white border rounded shadow-sm hover:text-red-500">-</button>
                         <span class="text-sm font-bold w-4 text-center">${item.qty}</span>
-                        <button onclick="updateQty('${item.id}', 1)" class="w-7 h-7 flex items-center justify-center bg-gray-800 rounded-md shadow-sm text-white hover:bg-black font-bold transition-colors">+</button>
+                        <button onclick="updateQty('${item.id}', 1)" class="w-6 h-6 flex items-center justify-center bg-black text-white rounded shadow-sm">+</button>
                     </div>
                 </div>
             `;
         });
     }
     document.getElementById('cart-total').textContent = formatPrice(totalUSD);
-    lucide.createIcons();
 }
 
 window.checkoutWhatsApp = function() {
-    if(cart.length === 0) return alert("Cart is empty!");
-    let msg = "Hi! I would like to buy:%0A";
-    let totalUSD = 0;
-    cart.forEach(item => {
-        let subtotal = item.price * item.qty;
-        totalUSD += subtotal;
-        msg += `- ${item.name} (x${item.qty}) - ${formatPrice(item.price)} each%0A`;
+    if(cart.length === 0) return alert("Empty!");
+    let msg = "Order Request:%0A";
+    let total = 0;
+    cart.forEach(i => {
+        total += i.price * i.qty;
+        msg += `- ${i.name} (x${i.qty}) ${formatPrice(i.price)}%0A`;
     });
-    msg += `%0A*Total: ${formatPrice(totalUSD)}*`;
+    msg += `%0A*Total: ${formatPrice(total)}*`;
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
 }
 
+// --- ADMIN / DASHBOARD ---
+window.loadDashboard = function() {
+    document.getElementById('dashboard-role').textContent = userRole;
+    if(userRole === 'buyer') { switchTab('login'); return; }
+
+    const pendingDiv = document.getElementById('admin-approvals');
+    const pList = document.getElementById('pending-list');
+    const mList = document.getElementById('manage-list');
+
+    if(userRole === 'admin') {
+        pendingDiv.classList.remove('hidden');
+        db.collection('products').where('status', '==', 'pending').get().then(snap => {
+            pList.innerHTML = snap.empty ? '<div class="text-xs text-gray-400">None.</div>' : '';
+            snap.forEach(doc => {
+                const p = doc.data();
+                pList.innerHTML += `
+                    <div class="flex justify-between items-center bg-white p-2 rounded border shadow-sm">
+                        <div class="text-sm">${p.name} <span class="text-xs text-gray-500">($${p.price})</span></div>
+                        <div class="flex gap-2">
+                            <button onclick="setStatus('${doc.id}', 'approved')" class="text-green-500"><i data-lucide="check" class="w-4 h-4"></i></button>
+                            <button onclick="delProd('${doc.id}')" class="text-red-500"><i data-lucide="trash" class="w-4 h-4"></i></button>
+                        </div>
+                    </div>`;
+            });
+            lucide.createIcons();
+        });
+    } else { pendingDiv.classList.add('hidden'); }
+
+    db.collection('products').where('status', '==', 'approved').get().then(snap => {
+        mList.innerHTML = '';
+        snap.forEach(doc => {
+            const p = doc.data();
+            mList.innerHTML += `
+                <div class="flex justify-between items-center bg-white p-2 rounded border shadow-sm">
+                    <div class="flex items-center gap-2">
+                        <img src="${p.image}" class="w-8 h-8 object-cover rounded">
+                        <div class="text-sm truncate w-32">${p.name}</div>
+                    </div>
+                    ${userRole === 'admin' ? `<button onclick="delProd('${doc.id}')" class="text-red-400"><i data-lucide="trash" class="w-4 h-4"></i></button>` : ''}
+                </div>`;
+        });
+        lucide.createIcons();
+    });
+}
+
+window.addProduct = function() {
+    const name = document.getElementById('prod-name').value;
+    const price = parseFloat(document.getElementById('prod-price').value);
+    const seller = document.getElementById('prod-seller').value;
+    const desc = document.getElementById('prod-desc').value;
+    const image = document.getElementById('prod-img').value;
+
+    if(!name || !price || !seller) return alert("Fill all info");
+    const status = userRole === 'admin' ? 'approved' : 'pending';
+
+    db.collection('products').add({
+        name, price, seller, description: desc, image, status,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(() => {
+        alert(status === 'approved' ? "Published!" : "Sent for Review");
+        loadDashboard();
+        // clear inputs
+        document.querySelectorAll('#view-dashboard input, #view-dashboard textarea').forEach(i => i.value = '');
+    });
+}
+
+window.setStatus = (id, s) => db.collection('products').doc(id).update({status: s}).then(()=>loadDashboard());
+window.delProd = (id) => confirm("Delete?") && db.collection('products').doc(id).delete().then(()=>loadDashboard());
+
+window.checkRole = function() {
+    const code = document.getElementById('role-code').value;
+    if(code === ADMIN_CODE) userRole = 'admin';
+    else if(code === SELLER_CODE) userRole = 'seller';
+    else return alert("Invalid Code");
+    
+    localStorage.setItem('storeRole', userRole);
+    switchTab('dashboard');
+    document.getElementById('role-code').value = '';
+}
+window.logout = function() {
+    userRole = 'buyer';
+    localStorage.setItem('storeRole', 'buyer');
+    switchTab('home');
+}
+
 // --- UTILS ---
-window.showToast = function(msg) {
+window.changeCurrency = () => {
+    activeCurrency = document.getElementById('currency-select').value;
+    localStorage.setItem('currency', activeCurrency);
+    loadProducts(); updateCartUI();
+}
+
+function formatPrice(usd) {
+    const val = usd * rates[activeCurrency];
+    return `${symbols[activeCurrency]}${activeCurrency === 'IDR' ? val.toLocaleString('id-ID') : val.toFixed(2)}`;
+}
+
+window.showToast = (msg) => {
     const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.remove('hidden');
-    setTimeout(() => { t.classList.add('hidden'); }, 2000);
+    t.textContent = msg; t.classList.remove('hidden');
+    setTimeout(() => t.classList.add('hidden'), 2000);
 }
